@@ -65,10 +65,11 @@ class DeviceDashboardOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Top-level menu: edit the default, edit a user, or remove a user override."""
-        return self.async_show_menu(
-            step_id="init",
-            menu_options=["edit_default", "edit_user", "remove_user"],
-        )
+        menu_options = ["edit_default", "edit_user"]
+        users = self._config_entry.options.get(CONF_USERS, {})
+        if any(key != DEFAULT_KEY for key in users):
+            menu_options.append("remove_user")  # only offer removal when overrides exist
+        return self.async_show_menu(step_id="init", menu_options=menu_options)
 
     async def async_step_edit_default(
         self, user_input: dict[str, Any] | None = None
@@ -144,7 +145,8 @@ class DeviceDashboardOptionsFlow(OptionsFlow):
         existing = users.get(self._edit_key, {}).get(CONF_MAPPINGS, {})
         selector = SelectSelector(
             SelectSelectorConfig(
-                options=self._dashboard_options(), mode=SelectSelectorMode.DROPDOWN
+                options=self._dashboard_options(existing),
+                mode=SelectSelectorMode.DROPDOWN,
             )
         )
         schema = vol.Schema(
@@ -158,11 +160,25 @@ class DeviceDashboardOptionsFlow(OptionsFlow):
                 for device_class in DEVICE_CLASSES
             }
         )
-        return self.async_show_form(step_id="edit_mappings", data_schema=schema)
+        return self.async_show_form(
+            step_id="edit_mappings",
+            data_schema=schema,
+            description_placeholders={"who": await self._who()},
+        )
 
     # --- helpers -------------------------------------------------------------
 
-    def _dashboard_options(self) -> list[SelectOptionDict]:
+    async def _who(self) -> str:
+        """Human label for whoever's mapping is being edited (for the form heading)."""
+        if self._edit_key == DEFAULT_KEY:
+            return "all users (default)"
+        names = {
+            user.id: (user.name or user.id)
+            for user in await self.hass.auth.async_get_users()
+        }
+        return names.get(self._edit_key, self._edit_key)
+
+    def _dashboard_options(self, existing: dict[str, str]) -> list[SelectOptionDict]:
         """Build dropdown options from the Lovelace dashboards collection.
 
         ``.config`` is the dashboard *metadata* dict (title/icon/mode/url_path), set once
@@ -170,6 +186,7 @@ class DeviceDashboardOptionsFlow(OptionsFlow):
         plain synchronous lookup that does not trigger a config load. It is ``None`` only
         for the None-key default dashboard, which we skip.
         """
+        seen = {NONE_VALUE, "lovelace"}
         options = [
             SelectOptionDict(value=NONE_VALUE, label="(no override — use default)"),
             SelectOptionDict(value="lovelace", label="Overview (default)"),
@@ -177,10 +194,19 @@ class DeviceDashboardOptionsFlow(OptionsFlow):
         lovelace = self.hass.data.get("lovelace")
         dashboards = getattr(lovelace, "dashboards", {}) if lovelace else {}
         for url_path, dashboard in dashboards.items():
-            if url_path and getattr(dashboard, "config", None):
+            if url_path and url_path not in seen and getattr(dashboard, "config", None):
+                seen.add(url_path)
                 title = dashboard.config.get("title", url_path)
                 options.append(
                     SelectOptionDict(value=url_path, label=f"{title} ({url_path})")
+                )
+        # Keep any currently-saved target that no longer exists as a labelled option, so the
+        # SelectSelector accepts the stored value instead of rejecting it (dangling ref).
+        for url_path in existing.values():
+            if url_path and url_path not in seen:
+                seen.add(url_path)
+                options.append(
+                    SelectOptionDict(value=url_path, label=f"⚠ missing ({url_path})")
                 )
         return options
 

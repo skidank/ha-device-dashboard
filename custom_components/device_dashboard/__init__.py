@@ -27,13 +27,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # the websocket command reads entry.options live and router.js only fetches config
     # at launch.
     if not hass.data.get(FRONTEND_REGISTERED):
-        js_path = os.path.join(os.path.dirname(__file__), "frontend", "router.js")
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(MODULE_URL, js_path, cache_headers=False)]
-        )
-        add_extra_js_url(hass, MODULE_URL)  # inject as an ES module on every page
-        websocket_api.async_setup(hass)  # register device_dashboard/get_config
+        # Set the flag before the first await so a concurrent setup can't also pass this
+        # check and double-register the static path (aiohttp rejects duplicate resources);
+        # reset it on failure so a retry can succeed.
         hass.data[FRONTEND_REGISTERED] = True
+        try:
+            js_path = os.path.join(os.path.dirname(__file__), "frontend", "router.js")
+            await hass.http.async_register_static_paths(
+                [StaticPathConfig(MODULE_URL, js_path, cache_headers=False)]
+            )
+            add_extra_js_url(hass, MODULE_URL)  # inject as an ES module on every page
+            websocket_api.async_setup(hass)  # register device_dashboard/get_config
+        except Exception:
+            hass.data[FRONTEND_REGISTERED] = False
+            raise
 
     return True
 

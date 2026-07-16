@@ -58,7 +58,8 @@ path, only once per launch).
   **auth `user.id`** or the literal `"__default__"`. The WS command resolves the user's
   override **or** `__default__` (never merged) and returns only `mappings`. router.js derives
   the launch page itself from `hass.userData.default_panel`, so there's no cached landing
-  state that can go stale.
+  state that can go stale. The WS command also drops any mapping target that isn't a live
+  dashboard, so a deleted dashboard never yields a redirect to a dead path.
 - **"Unset" is the `__none__` sentinel**, not an absent field — HA dropdowns can't be
   cleared once set. Saving drops `__none__` values and removes a user key entirely if it
   becomes empty.

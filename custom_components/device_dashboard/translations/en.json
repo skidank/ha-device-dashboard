@@ -34,7 +34,7 @@
       },
       "edit_mappings": {
         "title": "Map device types to dashboards",
-        "description": "Pick a dashboard for each device type. Leave a type as “(no override — use default)” to fall back to the default / the user's normal dashboard.",
+        "description": "Editing mapping for: {who}. Pick a dashboard for each device type; leave a type as “(no override — use default)” to fall back.",
         "data": {
           "ios_app": "iOS app",
           "android_app": "Android app",

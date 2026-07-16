@@ -46,4 +46,13 @@ def websocket_get_config(
 
     users = entries[0].options.get(CONF_USERS, {})
     cfg = users.get(connection.user.id) or users.get(DEFAULT_KEY, {})
-    connection.send_result(msg["id"], {CONF_MAPPINGS: cfg.get(CONF_MAPPINGS, {})})
+    mappings = cfg.get(CONF_MAPPINGS, {})
+
+    # Drop any target that's no longer a live dashboard, so the module never redirects to a
+    # deleted one. The built-in defaults ("lovelace"/"home") are always allowed.
+    dashboards = getattr(hass.data.get("lovelace"), "dashboards", None)
+    if dashboards:
+        valid = {url_path for url_path in dashboards if url_path} | {"lovelace", "home"}
+        mappings = {cls: target for cls, target in mappings.items() if target in valid}
+
+    connection.send_result(msg["id"], {CONF_MAPPINGS: mappings})

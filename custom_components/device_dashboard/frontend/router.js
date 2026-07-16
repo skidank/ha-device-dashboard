@@ -7,7 +7,12 @@
   const classify = (ua) => {
     if (/io\.robbie\.HomeAssistant/i.test(ua)) return "ios_app";
     if (/io\.homeassistant\.companion\.android/i.test(ua)) return "android_app";
-    if (/Mobi|Android|iPhone|iPad/i.test(ua)) return "mobile_web";
+    // iPadOS Safari defaults to a desktop (macOS) UA with no iPad/Mobi token; detect that
+    // via touch support so an iPad browser is treated as mobile rather than desktop.
+    const tabletOrPhone =
+      /Mobi|Android|iPhone|iPad/i.test(ua) ||
+      (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+    if (tabletOrPhone) return "mobile_web";
     return "desktop";
   };
 
@@ -77,5 +82,5 @@
     location.replace(dest.pathname);
   };
 
-  run().catch(() => {});
+  run().catch((e) => console.debug("[device_dashboard] skipped:", e?.message || e));
 })();
