@@ -1,0 +1,50 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Per-Device Default Dashboard",
+        "description": "Adds a per-device default dashboard router. After adding, use Configure to map device types to dashboards."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Already configured. Only a single instance is allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Device dashboard mapping",
+        "menu_options": {
+          "edit_default": "Edit default (all users)",
+          "edit_user": "Edit a user override",
+          "remove_user": "Remove a user override"
+        }
+      },
+      "edit_user": {
+        "title": "Choose a user",
+        "data": {
+          "user": "User"
+        }
+      },
+      "remove_user": {
+        "title": "Remove a user override",
+        "data": {
+          "user": "User"
+        }
+      },
+      "edit_mappings": {
+        "title": "Map device types to dashboards",
+        "description": "Pick a dashboard for each device type. Leave a type as “(no override — use default)” to fall back to the default / the user's normal dashboard.",
+        "data": {
+          "ios_app": "iOS app",
+          "android_app": "Android app",
+          "mobile_web": "Mobile browser",
+          "desktop": "Desktop browser"
+        }
+      }
+    },
+    "abort": {
+      "no_user_overrides": "There are no user overrides to remove."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Per-Device Default Dashboard",
+  "content_in_root": false,
+  "homeassistant": "2024.7.0",
+  "render_readme": true
+}

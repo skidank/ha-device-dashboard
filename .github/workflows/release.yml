@@ -1,0 +1,26 @@
+name: Release
+
+# Optional: on a version tag, attach a zip of the integration to a GitHub release.
+# HACS installs directly from the repo tree, so this is a convenience, not a requirement.
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zip integration
+        run: |
+          cd custom_components/device_dashboard
+          zip -r device_dashboard.zip . -x '*/__pycache__/*'
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: custom_components/device_dashboard/device_dashboard.zip
