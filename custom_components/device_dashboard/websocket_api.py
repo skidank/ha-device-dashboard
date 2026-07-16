@@ -10,7 +10,6 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .const import (
-    CONF_LANDING_PATHS,
     CONF_MAPPINGS,
     CONF_USERS,
     DEFAULT_KEY,
@@ -42,15 +41,9 @@ def websocket_get_config(
     """
     entries = hass.config_entries.async_entries(DOMAIN)
     if not entries:
-        connection.send_result(msg["id"], {CONF_MAPPINGS: {}, CONF_LANDING_PATHS: []})
+        connection.send_result(msg["id"], {CONF_MAPPINGS: {}})
         return
 
     users = entries[0].options.get(CONF_USERS, {})
     cfg = users.get(connection.user.id) or users.get(DEFAULT_KEY, {})
-    connection.send_result(
-        msg["id"],
-        {
-            CONF_MAPPINGS: cfg.get(CONF_MAPPINGS, {}),
-            CONF_LANDING_PATHS: cfg.get(CONF_LANDING_PATHS, []),
-        },
-    )
+    connection.send_result(msg["id"], {CONF_MAPPINGS: cfg.get(CONF_MAPPINGS, {})})

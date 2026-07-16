@@ -13,7 +13,6 @@ FRONTEND_REGISTERED = f"{DOMAIN}_frontend"
 # Options keys.
 CONF_USERS = "users"
 CONF_MAPPINGS = "mappings"
-CONF_LANDING_PATHS = "landing_paths"
 
 # Key under CONF_USERS for the global default (applies to users without an override).
 DEFAULT_KEY = "__default__"

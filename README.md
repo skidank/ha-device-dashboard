@@ -15,8 +15,8 @@ redirects to the mapped dashboard.
 - On every page it injects `router.js` (via `frontend.add_extra_js_url`).
 - At launch the module classifies the client (`ios_app` / `android_app` / `mobile_web` /
   `desktop`), fetches the mapping over a websocket command (`device_dashboard/get_config`),
-  and — only from a landing path, only once per launch — redirects with
-  `history.replaceState()` + a `location-changed` event.
+  and — only from a launch/landing page, once per launch — redirects with a full
+  navigation (`location.replace`) so the target dashboard loads fresh.
 - Mappings are **per-user** with a global **default** fallback, edited from the UI.
 
 Deep links (e.g. a notification opening a specific view) and manual navigation are left
@@ -61,7 +61,7 @@ an unset class does nothing, respecting the user's normal default.
   restarts (a known frontend limitation, shared with browser_mod).
 - **Map only to dashboards the user can access**, or the frontend will show its normal
   "not found/allowed" page.
-- Relies on frontend internals (the `<home-assistant>` element and `location-changed`);
+- Relies on frontend internals (the `<home-assistant>` element and the `hass` object);
   a frontend release could change these — the CI checks re-run on schedule.
 
 ## Development / validation

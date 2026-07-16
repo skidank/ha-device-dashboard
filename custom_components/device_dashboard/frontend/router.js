@@ -46,29 +46,22 @@
     });
     const cls = classify(navigator.userAgent);
     const target = cfg.mappings?.[cls];
-    if (!target) {
-      console.info("[device_dashboard] no mapping for", cls, "-", cfg.mappings);
-      return; // no mapping → respect the user's normal default
-    }
+    // A dashboard url_path is a single slug segment. Validate before using it in a
+    // navigation so a malformed/hostile value can't become a protocol-relative
+    // ("//evil.com") off-origin redirect.
+    if (!target || !/^[a-z0-9][a-z0-9_-]*$/i.test(target)) return;
 
     await settle(); // wait out the frontend's defaultPanel routing
 
-    // The page a fresh launch lands on is the user's default panel (resolved exactly like
-    // the frontend does). Treat it — plus "" and "lovelace" and any configured
-    // landing_paths — as redirect-eligible, so a launch redirects but a deep link to
-    // another dashboard does not.
+    // A fresh launch lands on the user's default panel (resolved as the frontend does), or
+    // the base URL "" before routing. Treat those — plus the built-in defaults
+    // "lovelace"/"home" — as redirect-eligible, so a launch redirects but a deep link to
+    // another dashboard does not. (router.js reads the real default panel, so no landing
+    // list needs to be stored/derived server-side.)
     const defaultPanel =
       hass.userData?.default_panel || hass.systemData?.default_panel || "lovelace";
     const seg = location.pathname.replace(/^\/+/, "").split("/")[0];
-    const landing = new Set(["", "lovelace", defaultPanel, ...(cfg.landing_paths || [])]);
-
-    console.info("[device_dashboard]", {
-      class: cls,
-      target,
-      seg,
-      defaultPanel,
-      eligible: landing.has(seg) && seg !== target,
-    });
+    const landing = new Set(["", "lovelace", "home", defaultPanel]);
 
     if (seg === target) return; // already there
     if (!landing.has(seg)) return; // deep link → leave alone
@@ -76,10 +69,12 @@
     // Full navigation (not history.replaceState + a location-changed event) so the target
     // loads fresh and load-time frontend plugins initialize on it — e.g. kiosk-mode, which
     // hides the HA chrome via an ON_LOVELACE_PANEL_LOAD hook and does NOT re-run on a soft
-    // in-app nav. location.replace adds no history entry; on the fresh load this module
-    // re-runs and no-ops (seg === target).
+    // in-app nav. Resolve against our own origin and never leave it; location.replace adds
+    // no history entry, and on the fresh load this module re-runs and no-ops (seg === target).
+    const dest = new URL("/" + target, location.origin);
+    if (dest.origin !== location.origin) return;
     window.__deviceDashboardRouted = true;
-    location.replace("/" + target);
+    location.replace(dest.pathname);
   };
 
   run().catch(() => {});

@@ -21,8 +21,6 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
-    CLASS_DESKTOP,
-    CONF_LANDING_PATHS,
     CONF_MAPPINGS,
     CONF_USERS,
     DEFAULT_KEY,
@@ -194,33 +192,14 @@ class DeviceDashboardOptionsFlow(OptionsFlow):
         }
         users = dict(self._config_entry.options.get(CONF_USERS, {}))
         if mappings:
-            users[self._edit_key] = {
-                CONF_MAPPINGS: mappings,
-                CONF_LANDING_PATHS: self._derive_landing_paths(mappings, users),
-            }
+            # Store mappings only. router.js recognizes the launch page from the live
+            # default panel (hass.userData.default_panel), so there's no landing list to
+            # derive/cache here — which would otherwise go stale when the default changes.
+            users[self._edit_key] = {CONF_MAPPINGS: mappings}
         else:
             # No mappings selected → drop the key entirely (falls back to default).
             users.pop(self._edit_key, None)
         return self._save_users(users)
-
-    def _derive_landing_paths(
-        self, mappings: dict[str, str], users: dict[str, Any]
-    ) -> list[str]:
-        """Landing pages where a launch redirect is allowed.
-
-        The user's real landing page is their ``defaultPanel``, which we can't read; we
-        approximate it with the desktop target (this entry's, else the global default's)
-        so the app launch — which lands on that page — is treated as redirect-eligible.
-        (``""`` and ``lovelace`` are always allowed by router.js.)
-
-        Note: if you change the default's desktop mapping, re-save any user overrides so
-        their landing_paths pick up the new value.
-        """
-        default_desktop = (
-            users.get(DEFAULT_KEY, {}).get(CONF_MAPPINGS, {}).get(CLASS_DESKTOP)
-        )
-        desktop = mappings.get(CLASS_DESKTOP) or default_desktop
-        return [desktop] if desktop else []
 
     def _save_users(self, users: dict[str, Any]) -> ConfigFlowResult:
         return self.async_create_entry(title="", data={CONF_USERS: users})

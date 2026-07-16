@@ -54,11 +54,11 @@ path, only once per launch).
 - **Singleton via manifest.** `"single_config_entry": true` makes HA block a second config
   entry; the config flow has no manual guard, and code assumes exactly one entry
   (`async_entries(DOMAIN)[0]`).
-- **Options shape:** `options["users"][<key>] = {"mappings": {...}, "landing_paths": [...]}`
-  where `<key>` is an HA **auth `user.id`** or the literal `"__default__"`. The WS command
-  resolves the user's override **or** `__default__` — never merged. Because of that,
-  `landing_paths` must be self-sufficient: `config_flow._derive_landing_paths` falls back to
-  the global default's `desktop` target when a per-user override lacks one.
+- **Options shape:** `options["users"][<key>] = {"mappings": {...}}` where `<key>` is an HA
+  **auth `user.id`** or the literal `"__default__"`. The WS command resolves the user's
+  override **or** `__default__` (never merged) and returns only `mappings`. router.js derives
+  the launch page itself from `hass.userData.default_panel`, so there's no cached landing
+  state that can go stale.
 - **"Unset" is the `__none__` sentinel**, not an absent field — HA dropdowns can't be
   cleared once set. Saving drops `__none__` values and removes a user key entirely if it
   becomes empty.
@@ -69,10 +69,10 @@ path, only once per launch).
   renders before the redirect rather than reloading straight from the loading splash. The redirect itself is a
   full navigation (`location.replace`), so there's no soft-nav race to lose and load-time
   frontend plugins initialize on the target dashboard.
-  The redirect only fires from a *landing* page — `""`, `lovelace`, the user's default panel
-  (`hass.userData?.default_panel`, resolved as the frontend does), or a configured
-  `landing_paths` entry — so a launch redirects but a deep link to another dashboard doesn't.
-  (Including the default panel is what makes it work when only one device class is mapped.)
+  The redirect only fires from a *landing* page — `""`, `lovelace`, `home`, or the user's
+  default panel (`hass.userData?.default_panel`, resolved as the frontend does) — so a launch
+  redirects but a deep link to another dashboard doesn't. `target` is validated as a slug and
+  resolved same-origin before navigating (no protocol-relative off-origin redirect).
 
 ## Home Assistant API notes
 
@@ -82,7 +82,7 @@ path, only once per launch).
   **metadata** dict (title/icon/url_path) — a synchronous read; the card config is separate
   and async. Verified against HA core 2026.7.2.
 - The integration depends on **undocumented frontend internals** (`<home-assistant>`
-  element, `hass.connection`, the `location-changed` event). A frontend release can break
+  element, `hass.connection`, `hass.userData.default_panel`). A frontend release can break
   `router.js` silently — re-run the behavioral/detection tests on each HA/frontend bump.
 - **The module can't be un-injected**: the frontend has no API to remove an `extra_js_url`,
   so removing the integration requires an HA restart to stop serving `router.js`.
