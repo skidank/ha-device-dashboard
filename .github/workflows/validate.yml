@@ -22,3 +22,7 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # 'brands' requires adding the domain to home-assistant/brands, which is part of
+          # HACS default-listing — not needed for custom-repository installs. Skip it so CI
+          # reflects custom-repo readiness. Remove this if you later submit to HACS default.
+          ignore: brands
