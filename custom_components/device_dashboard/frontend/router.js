@@ -73,9 +73,13 @@
     if (seg === target) return; // already there
     if (!landing.has(seg)) return; // deep link → leave alone
 
+    // Full navigation (not history.replaceState + a location-changed event) so the target
+    // loads fresh and load-time frontend plugins initialize on it — e.g. kiosk-mode, which
+    // hides the HA chrome via an ON_LOVELACE_PANEL_LOAD hook and does NOT re-run on a soft
+    // in-app nav. location.replace adds no history entry; on the fresh load this module
+    // re-runs and no-ops (seg === target).
     window.__deviceDashboardRouted = true;
-    history.replaceState(null, "", "/" + target);
-    window.dispatchEvent(new Event("location-changed"));
+    location.replace("/" + target);
   };
 
   run().catch(() => {});

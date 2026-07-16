@@ -33,7 +33,8 @@ only requests the base URL once. So device-type detection can only happen in the
 
 - **`frontend/router.js`** is where the actual routing decision lives. Injected on every
   page via `add_extra_js_url`, it classifies the UA, calls the websocket command for the
-  mapping, and redirects with `history.replaceState()` + a `location-changed` event.
+  mapping, and redirects with a **full navigation** (`location.replace`) so the target
+  dashboard loads fresh — load-time frontend plugins (e.g. kiosk-mode) then initialize on it.
 - **The Python package only plumbs**: serves the JS as a static path, registers it, exposes
   the mapping over a websocket command, and provides the config/options UI. It contains no
   routing logic.
@@ -64,8 +65,9 @@ path, only once per launch).
 - **`router.js` runs once per full page load** (it's a `type=module` script; SPA navigation
   never re-runs it). That, not the `window.__deviceDashboardRouted` backstop, is what
   prevents bouncing the user after manual navigation. The `settle()` step waits for the
-  path to leave `/` so the module wins the race against the frontend's `defaultPanel`
-  navigation — this ordering is timing-dependent and can only be confirmed on a real device.
+  path (and the user's default panel) to resolve before it decides. The redirect itself is a
+  full navigation (`location.replace`), so there's no soft-nav race to lose and load-time
+  frontend plugins initialize on the target dashboard.
   The redirect only fires from a *landing* page — `""`, `lovelace`, the user's default panel
   (`hass.userData?.default_panel`, resolved as the frontend does), or a configured
   `landing_paths` entry — so a launch redirects but a deep link to another dashboard doesn't.
