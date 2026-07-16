@@ -4,14 +4,6 @@
   // what prevents a "bounce" when the user manually opens another dashboard.
   if (window.__deviceDashboardRouted) return;
 
-  // Capture the path the app/browser actually opened with, NOW — before the frontend does
-  // its client-side defaultPanel routing. This is the true launch page and is what we
-  // decide from, so we can redirect without first waiting for (and painting) the default
-  // panel. A base-URL launch is "" here; a deep link (e.g. a notification) is the linked
-  // path. If the module happens to load after routing, this is the default panel instead —
-  // still handled, since the default panel is in the landing set below.
-  const entrySeg = location.pathname.replace(/^\/+/, "").split("/")[0];
-
   const classify = (ua) => {
     if (/io\.robbie\.HomeAssistant/i.test(ua)) return "ios_app";
     if (/io\.homeassistant\.companion\.android/i.test(ua)) return "android_app";
@@ -33,6 +25,20 @@
       tick();
     });
 
+  // Let the frontend finish its own defaultPanel navigation before we decide, so a real
+  // dashboard renders before the redirect (smoother than reloading straight from a loading
+  // splash). Wait for the path to leave "/", capped so we still act if the landing is root.
+  const settle = () =>
+    new Promise((resolve) => {
+      let tries = 0;
+      const tick = () => {
+        const seg = location.pathname.replace(/^\/+/, "").split("/")[0];
+        if (seg !== "" || tries++ > 8) return resolve();
+        setTimeout(tick, 50);
+      };
+      tick();
+    });
+
   const run = async () => {
     const hass = await waitForHass();
     const cfg = await hass.connection.sendMessagePromise({
@@ -45,30 +51,33 @@
       return; // no mapping → respect the user's normal default
     }
 
-    // A launch enters on the base URL ("") or, if the module loaded after routing, on the
-    // user's default panel (resolved as the frontend does). Treat those — plus "lovelace"
-    // and any configured landing_paths — as redirect-eligible, so a launch redirects but a
-    // deep link to another dashboard does not.
+    await settle(); // wait out the frontend's defaultPanel routing
+
+    // The page a fresh launch lands on is the user's default panel (resolved exactly like
+    // the frontend does). Treat it — plus "" and "lovelace" and any configured
+    // landing_paths — as redirect-eligible, so a launch redirects but a deep link to
+    // another dashboard does not.
     const defaultPanel =
       hass.userData?.default_panel || hass.systemData?.default_panel || "lovelace";
+    const seg = location.pathname.replace(/^\/+/, "").split("/")[0];
     const landing = new Set(["", "lovelace", defaultPanel, ...(cfg.landing_paths || [])]);
 
     console.info("[device_dashboard]", {
       class: cls,
       target,
-      entrySeg,
+      seg,
       defaultPanel,
-      eligible: landing.has(entrySeg) && entrySeg !== target,
+      eligible: landing.has(seg) && seg !== target,
     });
 
-    if (entrySeg === target) return; // already there
-    if (!landing.has(entrySeg)) return; // deep link → leave alone
+    if (seg === target) return; // already there
+    if (!landing.has(seg)) return; // deep link → leave alone
 
     // Full navigation (not history.replaceState + a location-changed event) so the target
     // loads fresh and load-time frontend plugins initialize on it — e.g. kiosk-mode, which
     // hides the HA chrome via an ON_LOVELACE_PANEL_LOAD hook and does NOT re-run on a soft
     // in-app nav. location.replace adds no history entry; on the fresh load this module
-    // re-runs and no-ops (entrySeg === target).
+    // re-runs and no-ops (seg === target).
     window.__deviceDashboardRouted = true;
     location.replace("/" + target);
   };
