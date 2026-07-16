@@ -64,8 +64,8 @@ path, only once per launch).
   becomes empty.
 - **`router.js` runs once per full page load** (it's a `type=module` script; SPA navigation
   never re-runs it). That, not the `window.__deviceDashboardRouted` backstop, is what
-  prevents bouncing the user after manual navigation. The `settle()` step waits for the
-  path (and the user's default panel) to resolve before it decides. The redirect itself is a
+  prevents bouncing the user after manual navigation. It decides from the **entry path** captured when the module loads (before the frontend's
+  client-side routing), so it can redirect before the default panel even paints. The redirect itself is a
   full navigation (`location.replace`), so there's no soft-nav race to lose and load-time
   frontend plugins initialize on the target dashboard.
   The redirect only fires from a *landing* page — `""`, `lovelace`, the user's default panel
