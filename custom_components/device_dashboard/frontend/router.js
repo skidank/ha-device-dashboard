@@ -46,12 +46,30 @@
     });
     const cls = classify(navigator.userAgent);
     const target = cfg.mappings?.[cls];
-    if (!target) return; // no mapping → respect the user's normal default
+    if (!target) {
+      console.info("[device_dashboard] no mapping for", cls, "-", cfg.mappings);
+      return; // no mapping → respect the user's normal default
+    }
 
     await settle(); // wait out the frontend's defaultPanel routing
 
+    // The page a fresh launch lands on is the user's default panel (resolved exactly like
+    // the frontend does). Treat it — plus "" and "lovelace" and any configured
+    // landing_paths — as redirect-eligible, so a launch redirects but a deep link to
+    // another dashboard does not.
+    const defaultPanel =
+      hass.userData?.default_panel || hass.systemData?.default_panel || "lovelace";
     const seg = location.pathname.replace(/^\/+/, "").split("/")[0];
-    const landing = new Set(["", "lovelace", ...(cfg.landing_paths || [])]);
+    const landing = new Set(["", "lovelace", defaultPanel, ...(cfg.landing_paths || [])]);
+
+    console.info("[device_dashboard]", {
+      class: cls,
+      target,
+      seg,
+      defaultPanel,
+      eligible: landing.has(seg) && seg !== target,
+    });
+
     if (seg === target) return; // already there
     if (!landing.has(seg)) return; // deep link → leave alone
 

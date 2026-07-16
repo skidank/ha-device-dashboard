@@ -66,6 +66,10 @@ path, only once per launch).
   prevents bouncing the user after manual navigation. The `settle()` step waits for the
   path to leave `/` so the module wins the race against the frontend's `defaultPanel`
   navigation — this ordering is timing-dependent and can only be confirmed on a real device.
+  The redirect only fires from a *landing* page — `""`, `lovelace`, the user's default panel
+  (`hass.userData?.default_panel`, resolved as the frontend does), or a configured
+  `landing_paths` entry — so a launch redirects but a deep link to another dashboard doesn't.
+  (Including the default panel is what makes it work when only one device class is mapped.)
 
 ## Home Assistant API notes
 
