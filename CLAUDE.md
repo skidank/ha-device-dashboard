@@ -57,23 +57,33 @@ path, only once per launch).
 - **Options shape:** `options["users"][<key>] = {"mappings": {...}}` where `<key>` is an HA
   **auth `user.id`** or the literal `"__default__"`. The WS command resolves the user's
   override **or** `__default__` (never merged) and returns only `mappings`. router.js derives
-  the launch page itself from `hass.userData.default_panel`, so there's no cached landing
-  state that can go stale. The WS command also drops any mapping target that isn't a live
-  dashboard, so a deleted dashboard never yields a redirect to a dead path.
+  the launch page itself from `hass.userData.default_panel` — read from the **live**
+  `<home-assistant>.hass` at decision time, never a captured snapshot (see below) — so
+  there's no cached landing state that can go stale. The WS command also drops any mapping
+  target that isn't a live dashboard, so a deleted dashboard never yields a redirect to a
+  dead path.
 - **"Unset" is the `__none__` sentinel**, not an absent field — HA dropdowns can't be
   cleared once set. Saving drops `__none__` values and removes a user key entirely if it
   becomes empty.
 - **`router.js` runs once per full page load** (it's a `type=module` script; SPA navigation
   never re-runs it). That, not the `window.__deviceDashboardRouted` backstop, is what
-  prevents bouncing the user after manual navigation. The `settle()` step waits for the
-  path (and the user's default panel) to resolve before it decides, so a real dashboard
-  renders before the redirect rather than reloading straight from the loading splash. The redirect itself is a
-  full navigation (`location.replace`), so there's no soft-nav race to lose and load-time
-  frontend plugins initialize on the target dashboard.
+  prevents bouncing the user after manual navigation. The `settle()` step waits for the path
+  to leave `/` (the frontend's own defaultPanel routing) before it decides, so a real
+  dashboard renders before the redirect rather than reloading straight from the loading
+  splash. The redirect itself is a full navigation (`location.replace`), so there's no
+  soft-nav race to lose and load-time frontend plugins initialize on the target dashboard.
   The redirect only fires from a *landing* page — `""`, `lovelace`, `home`, or the user's
   default panel (`hass.userData?.default_panel`, resolved as the frontend does) — so a launch
-  redirects but a deep link to another dashboard doesn't. `target` is validated as a slug and
-  resolved same-origin before navigating (no protocol-relative off-origin redirect).
+  redirects but a deep link to another dashboard doesn't. **Two independent signals gate
+  this so a cold start can't miss it:** the *entry* path captured synchronously at module
+  start (before the frontend routes — a launch enters at `""`) **and** the *settled* path;
+  either being a landing is enough. Crucially `default_panel` is read from the **live**
+  `hass` at decision time, not from the reference `waitForHass` captured: `hass` is immutable
+  and `userData` loads *asynchronously after* the connection exists, so the captured snapshot
+  usually still has `userData === undefined` — reading it made the landing set fall back to
+  `lovelace`, so a launch onto a *custom* default panel looked like a deep link and was
+  intermittently not redirected. `target` is validated as a slug and resolved same-origin
+  before navigating (no protocol-relative off-origin redirect).
 
 ## Home Assistant API notes
 

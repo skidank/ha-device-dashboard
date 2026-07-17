@@ -4,6 +4,13 @@
   // what prevents a "bounce" when the user manually opens another dashboard.
   if (window.__deviceDashboardRouted) return;
 
+  // Entry path captured synchronously, BEFORE the frontend runs its own defaultPanel
+  // navigation. This is the race-proof "was this a fresh launch?" signal: a launch enters
+  // at the base URL "" and a deep link enters at its own dashboard slug. Unlike the
+  // settled-path + default_panel check below it never depends on hass.userData having
+  // loaded, so it can't miss a launch redirect on a cold start (see liveHass).
+  const entrySeg = location.pathname.replace(/^\/+/, "").split("/")[0];
+
   const classify = (ua) => {
     if (/io\.robbie\.HomeAssistant/i.test(ua)) return "ios_app";
     if (/io\.homeassistant\.companion\.android/i.test(ua)) return "android_app";
@@ -15,6 +22,14 @@
     if (tabletOrPhone) return "mobile_web";
     return "desktop";
   };
+
+  // The <home-assistant> element replaces its `hass` object on every update (HA's hass is
+  // immutable), so a reference captured once goes stale. Read the LIVE one at decision
+  // time — critically for userData.default_panel, which starts `undefined` and is populated
+  // asynchronously AFTER the connection exists (via subscribeFrontendUserData), i.e. often
+  // after waitForHass has already resolved. Reading a captured snapshot instead was the
+  // cause of intermittently-missed launch redirects.
+  const liveHass = () => document.querySelector("home-assistant")?.hass || null;
 
   // setTimeout (not rAF) so it also ticks in a backgrounded/throttled tab; bounded so it
   // never spins forever if the element never appears.
@@ -58,18 +73,30 @@
 
     await settle(); // wait out the frontend's defaultPanel routing
 
+    // Resolve the default panel from the LIVE hass (see liveHass): the frontend routes
+    // "/" -> "/<default_panel>" using userData, and settle() only returns once that routing
+    // has happened, so by now userData.default_panel is loaded. Reading the stale captured
+    // snapshot here was the bug — its userData was still undefined, so the landing set fell
+    // back to "lovelace" and a launch onto a *custom* default panel looked like a deep link
+    // and was never redirected (intermittently, depending on load timing).
+    const h = liveHass() || hass;
+    const defaultPanel =
+      h.userData?.default_panel || h.systemData?.default_panel || "lovelace";
+    const seg = location.pathname.replace(/^\/+/, "").split("/")[0];
+
     // A fresh launch lands on the user's default panel (resolved as the frontend does), or
     // the base URL "" before routing. Treat those — plus the built-in defaults
     // "lovelace"/"home" — as redirect-eligible, so a launch redirects but a deep link to
-    // another dashboard does not. (router.js reads the real default panel, so no landing
-    // list needs to be stored/derived server-side.)
-    const defaultPanel =
-      hass.userData?.default_panel || hass.systemData?.default_panel || "lovelace";
-    const seg = location.pathname.replace(/^\/+/, "").split("/")[0];
+    // another dashboard does not.
     const landing = new Set(["", "lovelace", "home", defaultPanel]);
 
     if (seg === target) return; // already there
-    if (!landing.has(seg)) return; // deep link → leave alone
+    // Redirect only from a landing page. A fresh launch enters on a landing (entrySeg,
+    // captured before routing) and settles on one (seg); a deep link enters and stays on
+    // its own slug. Requiring EITHER path to be a landing keeps launches redirecting even
+    // if the live default_panel is momentarily unavailable, while still leaving genuine
+    // deep links alone.
+    if (!landing.has(entrySeg) && !landing.has(seg)) return; // deep link → leave alone
 
     // Full navigation (not history.replaceState + a location-changed event) so the target
     // loads fresh and load-time frontend plugins initialize on it — e.g. kiosk-mode, which
