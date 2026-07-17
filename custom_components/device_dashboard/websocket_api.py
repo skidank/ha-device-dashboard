@@ -49,10 +49,13 @@ def websocket_get_config(
     mappings = cfg.get(CONF_MAPPINGS, {})
 
     # Drop any target that's no longer a live dashboard, so the module never redirects to a
-    # deleted one. The built-in defaults ("lovelace"/"home") are always allowed.
+    # deleted one. "lovelace" (the built-in overview) is always allowed: it's keyed None in
+    # the collection, so it isn't in the url_path set. A user-made dashboard actually named
+    # "home" is still allowed via that set. Use `is not None` so an empty collection still
+    # filters — a truthiness check would skip filtering and let stale targets through.
     dashboards = getattr(hass.data.get("lovelace"), "dashboards", None)
-    if dashboards:
-        valid = {url_path for url_path in dashboards if url_path} | {"lovelace", "home"}
+    if dashboards is not None:
+        valid = {url_path for url_path in dashboards if url_path} | {"lovelace"}
         mappings = {cls: target for cls, target in mappings.items() if target in valid}
 
     connection.send_result(msg["id"], {CONF_MAPPINGS: mappings})

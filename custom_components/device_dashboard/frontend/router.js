@@ -80,8 +80,13 @@
     // back to "lovelace" and a launch onto a *custom* default panel looked like a deep link
     // and was never redirected (intermittently, depending on load timing).
     const h = liveHass() || hass;
+    // Prefer the per-user default (userData.default_panel). Fall back to the frontend's
+    // resolved default panel (hass.defaultPanel — set even with no per-user override, e.g.
+    // a system-wide `frontend: default_panel:`), then to "lovelace". (The previous
+    // `systemData` term was not a real hass property and always no-op'd; if defaultPanel is
+    // likewise absent it just falls through to "lovelace", i.e. no worse than before.)
     const defaultPanel =
-      h.userData?.default_panel || h.systemData?.default_panel || "lovelace";
+      h.userData?.default_panel || h.defaultPanel || "lovelace";
     const seg = location.pathname.replace(/^\/+/, "").split("/")[0];
 
     // A fresh launch lands on the user's default panel (resolved as the frontend does), or

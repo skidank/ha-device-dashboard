@@ -28,18 +28,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # at launch.
     if not hass.data.get(FRONTEND_REGISTERED):
         # Set the flag before the first await so a concurrent setup can't also pass this
-        # check and double-register the static path (aiohttp rejects duplicate resources);
-        # reset it on failure so a retry can succeed.
+        # check and double-register the static path (aiohttp rejects duplicate resources).
         hass.data[FRONTEND_REGISTERED] = True
+        static_path_registered = False
         try:
             js_path = os.path.join(os.path.dirname(__file__), "frontend", "router.js")
             await hass.http.async_register_static_paths(
                 [StaticPathConfig(MODULE_URL, js_path, cache_headers=False)]
             )
+            # The static path is the one un-repeatable registration (aiohttp rejects a
+            # duplicate resource); the two calls below are synchronous and idempotent.
+            static_path_registered = True
             add_extra_js_url(hass, MODULE_URL)  # inject as an ES module on every page
             websocket_api.async_setup(hass)  # register device_dashboard/get_config
         except Exception:
-            hass.data[FRONTEND_REGISTERED] = False
+            # Release the one-time slot only if the static path is NOT yet registered, so a
+            # setup retry can re-run cleanly. If it is registered, leave the flag set — a
+            # retry re-registering the same path would crash on the duplicate resource.
+            if not static_path_registered:
+                hass.data[FRONTEND_REGISTERED] = False
             raise
 
     return True
