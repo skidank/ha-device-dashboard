@@ -19,8 +19,9 @@ redirects to the mapped dashboard.
   navigation (`location.replace`) so the target dashboard loads fresh.
 - Mappings are **per-user** with a global **default** fallback, edited from the UI.
 
-Deep links (e.g. a notification opening a specific view) and manual navigation are left
-alone, so you won't get "bounced" back.
+Deep links (e.g. a notification opening a specific view) and in-app navigation are left
+alone, so you won't get "bounced" back. (A full page **reload** while you're sitting on
+your default panel looks the same as a fresh launch, so it will redirect too.)
 
 ## Installation (HACS)
 
